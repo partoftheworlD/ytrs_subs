@@ -1,10 +1,7 @@
 use clap::{App, Arg};
 use error_chain::error_chain;
-use quick_xml::events::Event;
-use quick_xml::Reader;
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
+use quick_xml::{events::Event, Reader};
+use std::{fs::File, io::Write, path::Path};
 
 error_chain! {
     foreign_links {
@@ -16,14 +13,13 @@ error_chain! {
 fn write_to_file(output_path: String, buffer: Vec<String>) {
     let path = Path::new(&output_path);
     let display = path.display();
-    let mut file = match File::create(&path) {
+    let mut file = match File::create(path) {
         Err(v) => panic!("couldn't write to {}: {}", display, v),
         Ok(file) => file,
     };
     for i in buffer.iter() {
-        match file.write_all(i.as_bytes()) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why),
-            Ok(_) => (),
+        if let Err(why) = file.write_all(i.as_bytes()) {
+            panic!("couldn't write to {}: {}", display, why)
         };
     }
 }
@@ -65,11 +61,7 @@ fn parse_args() -> (String, String, String) {
 #[tokio::main]
 async fn main() -> Result<()> {
     let (video_id, lang, output) = parse_args();
-    let url = format!(
-        "https://video.google.com/timedtext?lang={}&v={}",
-        lang = lang,
-        video_id = video_id
-    );
+    let url = format!("https://video.google.com/timedtext?lang={lang}&v={video_id}",);
     let data = reqwest::get(&url).await?.text().await.unwrap();
     if !data.is_empty() {
         let mut txt = Vec::new();
@@ -80,7 +72,7 @@ async fn main() -> Result<()> {
             match reader.read_event(&mut buf) {
                 Ok(Event::Text(e)) => txt.push(e.unescape_and_decode(&reader).unwrap()),
                 Ok(Event::Eof) => break,
-                Err(e) => panic!(e),
+                Err(e) => std::panic::panic_any(e),
                 _ => (),
             }
             buf.clear();
